@@ -1,0 +1,5 @@
+package ethermint
+
+func init() {
+
+}

@@ -1,0 +1,3 @@
+port: 8086
+db_tail_fix: main
+rpc: https://cosmos-rpc.mtt.network:443
