@@ -147,12 +147,11 @@ func TestDbH2(t *testing.T) {
 	db := NewLdb(tailFix)
 
 	err := db.Transaction(func(db *LDB, batch *leveldb.Batch) error {
-		chain := &types.Chain{
-			Name:    "mtt",
-			Rpc:     "https://cosmos-rpc.mtt.network:443",
-			ChainID: "mtt_6880-1",
-			//Height:  5054844,
-			Height: 5199872,
+		chain := &types.DelegatorOutList{
+			Delegator:  "mtt12x07g3270742n42heupleuwvjuzn5j6x4dmysj",
+			Validators: []string{"mttvaloper12x07g3270742n42heupleuwvjuzn5j6x2ekcn0"},
+			Amounts:    []string{"1000000000000000000000000"},
+			Denom:      "amtt",
 		}
 		err := StoreRecord(db.DB, batch, chain)
 		if err != nil {
