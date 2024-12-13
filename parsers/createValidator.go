@@ -85,7 +85,7 @@ func (c *MsgCreateValidatorParser) IndexMessage(ldb *db.LDB, batch *leveldb.Batc
 	}
 	outList.AddValidatorRecord(validatorRecord, true)
 
-	return db.StoreRecord(ldb.DB, batch, validatorRecord.ToDelegate())
+	return db.StoreRecord(ldb.DB, batch, outList)
 }
 
 type CommissionChangeEvent struct {
