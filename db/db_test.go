@@ -118,7 +118,7 @@ func TestDbH(t *testing.T) {
 			Name:    "mtt",
 			Rpc:     "https://cosmos-rpc.mtt.network:443",
 			ChainID: "mtt_6880-1",
-			//Height:  5054844,
+			Height:  5054844,
 			//Height: 5211170,
 		}
 		err = StoreRecord(db.DB, batch, chain)

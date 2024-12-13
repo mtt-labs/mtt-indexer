@@ -149,7 +149,7 @@ func (d *DelegatorOutList) AddValidatorRecord(record ValidatorRecord, delta bool
 		if v == record.Validator {
 			contain = true
 			amount, _ := sdkmath.NewIntFromString(d.Amounts[index])
-			vAmount, _ := sdkmath.NewIntFromString(d.Amounts[index])
+			vAmount, _ := sdkmath.NewIntFromString(record.Amount)
 			if delta {
 				amount = amount.Add(vAmount)
 			} else {
