@@ -118,8 +118,8 @@ func TestDbH(t *testing.T) {
 			Name:    "mtt",
 			Rpc:     "https://cosmos-rpc.mtt.network:443",
 			ChainID: "mtt_6880-1",
-			Height:  5054844,
-			//Height: 5211170,
+			//Height:  5054844,
+			Height: 5199872,
 		}
 		err = StoreRecord(db.DB, batch, chain)
 		if err != nil {
@@ -130,6 +130,31 @@ func TestDbH(t *testing.T) {
 			Amount: "1000000000000000000000000",
 		}
 		err = StoreRecord(db.DB, batch, stake)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return
+	}
+
+	//2024-06-11T10:51:01.477179159Z
+}
+
+func TestDbH2(t *testing.T) {
+	db := NewLdb(tailFix)
+
+	err := db.Transaction(func(db *LDB, batch *leveldb.Batch) error {
+		chain := &types.Chain{
+			Name:    "mtt",
+			Rpc:     "https://cosmos-rpc.mtt.network:443",
+			ChainID: "mtt_6880-1",
+			//Height:  5054844,
+			Height: 5199872,
+		}
+		err := StoreRecord(db.DB, batch, chain)
 		if err != nil {
 			return err
 		}
