@@ -26,8 +26,6 @@ func (c *MsgWithdrawDelegatorRewardParser) ParseMessage(cosmosMsg stdTypes.Msg, 
 		return nil, errors.New("not a delegation message")
 	}
 
-	//commission := msgWithdrawDelegator.DelegatorAddress.MustFloat64()
-
 	amount := ""
 	if len(log.Events) > 0 {
 		if log.Events[len(log.Events)-1].Attributes[0].Key == "amount" {
@@ -38,7 +36,7 @@ func (c *MsgWithdrawDelegatorRewardParser) ParseMessage(cosmosMsg stdTypes.Msg, 
 
 	storageVal := any(types.ValidatorRecord{
 		Delegator:      msgWithdrawDelegator.DelegatorAddress,
-		Validator:      msgWithdrawDelegator.DelegatorAddress,
+		Validator:      msgWithdrawDelegator.ValidatorAddress,
 		Amount:         amount,
 		Denom:          "amtt",
 		DelegationType: types.Claim,
