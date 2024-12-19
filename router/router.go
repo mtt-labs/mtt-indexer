@@ -16,7 +16,7 @@ func Init(s service.IService) *gin.Engine {
 	group.GET("/delegatorList", controller.DelegatorListEndpoint(s))
 	group.GET("/delegatorHistory", controller.DelegatorHistoryEndpoint(s))
 	group.GET("/validatorHistory", controller.ValidatorHistoryEndpoint(s))
-	group.GET("/stakeHistory", controller.StakeHistoryEndpoint(s))
+	group.GET("/rewardHistory", controller.RewardHistoryEndpoint(s))
 	group.GET("/commissionRecord", controller.CommissionRecordEndpoint(s))
 	group.GET("/height", controller.HeightEndpoint(s))
 	return r

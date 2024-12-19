@@ -62,11 +62,9 @@ type ChainService struct {
 	txDataChan chan *DBData
 }
 
-func NewChainService(
-	ldb *db.LDB,
+func NewChainClient(
 	chain *types.Chain,
-	rpcStr string,
-) (*ChainService, error) {
+	rpcStr string) (*client.ChainClient, error) {
 	config := &client.ChainClientConfig{
 		Key:            "default",
 		ChainID:        chain.ChainID,
@@ -87,6 +85,14 @@ func NewChainService(
 
 	cl.Codec.InterfaceRegistry.RegisterImplementations((*cryptotypes.PubKey)(nil), &ethsecp256k1.PubKey{})
 	cl.Codec.InterfaceRegistry.RegisterImplementations((*cryptotypes.PrivKey)(nil), &ethsecp256k1.PrivKey{})
+	return cl, nil
+}
+
+func NewChainService(
+	ldb *db.LDB,
+	chain *types.Chain,
+	cl *client.ChainClient,
+) (*ChainService, error) {
 
 	return &ChainService{
 		ldb:   ldb,

@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	sdkTypes "github.com/cosmos/cosmos-sdk/types"
 	"mtt-indexer/config"
 	"mtt-indexer/cornjob"
 	"mtt-indexer/db"
@@ -16,8 +17,6 @@ import (
 	"net/http"
 	"os"
 	"sync"
-
-	sdkTypes "github.com/cosmos/cosmos-sdk/types"
 )
 
 var (
@@ -49,8 +48,6 @@ func main() {
 	cfg := &config.Cfg
 	db := db.NewLdb(cfg.DbTailFix)
 
-	go cornjob.CronJobLedgerInit(db)
-
 	newService := service.NewService(db)
 	engine := router.Init(newService)
 	addr := fmt.Sprintf("0.0.0.0:%d", cfg.Port)
@@ -78,10 +75,17 @@ func main() {
 		}
 	}
 
-	chainService, err := service.NewChainService(db, chain, cfg.Rpc)
+	cl, err := service.NewChainClient(chain, cfg.Rpc)
 	if err != nil {
 		logger.Logger.Fatal(err)
 	}
+
+	chainService, err := service.NewChainService(db, chain, cl)
+	if err != nil {
+		logger.Logger.Fatal(err)
+	}
+
+	go cornjob.CronJobLedgerInit(db, cl)
 
 	stakingDelegateRegexMessageTypeFilter, err := filter.NewRegexMessageTypeFilter("^/cosmos\\.staking.*MsgDelegate$", false)
 	if err != nil {
@@ -113,12 +117,18 @@ func main() {
 		logger.Logger.Fatalf("Failed to create regex message type filter. Err: %v", err)
 	}
 
+	distributionWithdrawCommissionFilter, err := filter.NewRegexMessageTypeFilter("^/cosmos\\.distribution.*MsgWithdrawValidatorCommission$", false)
+	if err != nil {
+		logger.Logger.Fatalf("Failed to create regex message type filter. Err: %v", err)
+	}
+
 	chainService.RegisterMessageTypeFilter(stakingDelegateRegexMessageTypeFilter)
 	chainService.RegisterMessageTypeFilter(stakingUndelegateRegexMessageTypeFilter)
 	chainService.RegisterMessageTypeFilter(stakingCreateValidatorTypeFilter)
 	chainService.RegisterMessageTypeFilter(distributionWithdrawDelegatorFilter)
 	chainService.RegisterMessageTypeFilter(stakingCancelUnbondingTypeFilter)
 	chainService.RegisterMessageTypeFilter(redelegateFilter)
+	chainService.RegisterMessageTypeFilter(distributionWithdrawCommissionFilter)
 
 	delegateParser := &parsers.MsgDelegateUndelegateParser{Id: "delegate"}
 	undelegateParser := &parsers.MsgDelegateUndelegateParser{Id: "undelegate"}
@@ -126,6 +136,7 @@ func main() {
 	withdrawDelegatorRewardParser := &parsers.MsgWithdrawDelegatorRewardParser{Id: "delegatorReward"}
 	cancelUnnbondingParser := &parsers.MsgCancelUnbondingParser{Id: "cancelUnbonding"}
 	redelegateParser := &parsers.MsgRedelegateParser{Id: "redelegate"}
+	withdrawCommissionParser := &parsers.MsgRedelegateParser{Id: "commissionReward"}
 
 	chainService.RegisterCustomMessageParser("/cosmos.staking.v1beta1.MsgDelegate", delegateParser)
 	chainService.RegisterCustomMessageParser("/cosmos.staking.v1beta1.MsgUndelegate", undelegateParser)
@@ -133,7 +144,7 @@ func main() {
 	chainService.RegisterCustomMessageParser("/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward", withdrawDelegatorRewardParser)
 	chainService.RegisterCustomMessageParser("/cosmos.staking.v1beta1.MsgCancelUnbondingDelegation", cancelUnnbondingParser)
 	chainService.RegisterCustomMessageParser("/cosmos.staking.v1beta1.MsgBeginRedelegate", redelegateParser)
-
+	chainService.RegisterCustomMessageParser("/cosmos.distribution.v1beta1.MsgWithdrawValidatorCommission", withdrawCommissionParser)
 	var wg sync.WaitGroup
 
 	wg.Add(1)

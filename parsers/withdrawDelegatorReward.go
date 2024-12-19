@@ -1,6 +1,7 @@
 package parsers
 
 import (
+	sdkmath "cosmossdk.io/math"
 	"errors"
 	stdTypes "github.com/cosmos/cosmos-sdk/types"
 	distributionTypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
@@ -82,5 +83,31 @@ func (c *MsgWithdrawDelegatorRewardParser) IndexMessage(ldb *db.LDB, batch *leve
 		return err
 	}
 
-	return db.StoreRecord(ldb.DB, batch, validatorRecord.ToDelegate())
+	err = db.StoreRecord(ldb.DB, batch, validatorRecord.ToDelegate())
+	if err != nil {
+		return err
+	}
+
+	//save claimed24H record
+	IRecord, err := ldb.GetRecordByType(&types.Claimed24H{Validator: validatorRecord.Validator})
+	if err != nil {
+		return err
+	}
+	storeRecord := &types.Claimed24H{}
+	if IRecord == nil {
+		storeRecord = &types.Claimed24H{
+			Validator: validatorRecord.Validator,
+			Amount:    validatorRecord.Amount,
+		}
+	} else {
+		if record, ok := IRecord.(*types.Claimed24H); ok {
+			storeRecord = record
+		}
+		amount, _ := sdkmath.NewIntFromString(storeRecord.Amount)
+		claimAmount, _ := sdkmath.NewIntFromString(validatorRecord.Amount)
+		amount = amount.Add(claimAmount)
+		storeRecord.Amount = amount.String()
+	}
+	return db.StoreRecord(ldb.DB, batch, storeRecord)
+
 }

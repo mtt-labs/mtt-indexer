@@ -2,9 +2,12 @@ package cornjob
 
 import (
 	"context"
+	sdkmath "cosmossdk.io/math"
+	"github.com/DefiantLabs/probe/client"
 	"github.com/syndtr/goleveldb/leveldb"
 	"mtt-indexer/db"
 	"mtt-indexer/logger"
+	"mtt-indexer/rpc"
 	"mtt-indexer/types"
 	"mtt-indexer/util/cron"
 	"time"
@@ -12,53 +15,76 @@ import (
 
 type TotalStakeJob struct {
 	ldb *db.LDB
+	cl  *client.ChainClient
 }
 
-func CronJobLedgerInit(db *db.LDB) {
+func CronJobLedgerInit(db *db.LDB, cl *client.ChainClient) {
 	c := cron.NewCron()
 	//0 0 */8 * * *
 	//0 0 0 * * *
-	c.Register("Ledger job", "0 0 0 * * *", NewTotalStakeJob(db).saveStake)
+	c.Register("Ledger job", "0 0 0 * * *", NewTotalStakeJob(db, cl).saveValidatorsReward)
 	c.Run()
 	defer c.Stop()
 }
 
-func NewTotalStakeJob(ldb *db.LDB) *TotalStakeJob {
-	return &TotalStakeJob{ldb: ldb}
+func NewTotalStakeJob(ldb *db.LDB, cl *client.ChainClient) *TotalStakeJob {
+	return &TotalStakeJob{ldb: ldb, cl: cl}
 }
 
-func (t *TotalStakeJob) saveStake(ctx context.Context) error {
-	stake := t.getCulStake()
-
-	stakeHis := &types.StakeHistory{
-		ID:     0,
-		Amount: stake.Amount,
-		Time:   time.Now(),
+func (t *TotalStakeJob) saveValidatorsReward(ctx context.Context) error {
+	validators, err := rpc.AllValidator(t.cl)
+	if err != nil {
+		return err
 	}
-	err := t.ldb.Transaction(
+	for _, v := range validators {
+		err = t.saveValidatorReward(v)
+		if err != nil {
+			logger.Logger.Errorf("t.saveValidatorReward %s ,err %v", v, err)
+			return err
+		}
+	}
+	return err
+}
+
+func (t *TotalStakeJob) saveValidatorReward(validator string) error {
+	reward, err := rpc.GetValidatorReward(t.cl, validator)
+	if err != nil {
+		return nil
+	}
+	record := &types.RewardRecord{
+		Validator: validator,
+		Amount:    reward.String(),
+		Time:      time.Now().Unix(),
+	}
+	recordAmount, _ := sdkmath.NewIntFromString(record.Amount)
+	claimed, err := t.getValidatorClaimed24H(validator)
+	if err != nil {
+		return err
+	}
+	record.Amount = recordAmount.Sub(claimed).String()
+	return t.ldb.Transaction(
 		func(l *db.LDB, batch *leveldb.Batch) error {
-			err := db.StoreRecord(l.DB, batch, stakeHis)
+			err := db.StoreRecord(l.DB, batch, record)
 			if err != nil {
 				return err
 			}
 			return nil
 		})
-	if err != nil {
-		logger.Logger.Errorf("corn job t.ldb.Transaction : %v", err)
-	}
-	return err
 }
 
-func (t *TotalStakeJob) getCulStake() *types.Stake {
-	stake := &types.Stake{}
-	record, err := t.ldb.GetRecordByType(stake)
+func (t *TotalStakeJob) getValidatorClaimed24H(validator string) (sdkmath.Int, error) {
+	IRecord, err := t.ldb.GetRecordByType(&types.Claimed24H{Validator: validator})
 	if err != nil {
-		return nil
+		return sdkmath.NewInt(0), err
 	}
-	if record != nil {
-		if stakeRecord, ok := record.(*types.Stake); ok {
-			stake = stakeRecord
+	storeRecord := &types.Claimed24H{}
+	if IRecord == nil {
+		return sdkmath.NewInt(0), nil
+	} else {
+		if record, ok := IRecord.(*types.Claimed24H); ok {
+			storeRecord = record
 		}
+		amount, _ := sdkmath.NewIntFromString(storeRecord.Amount)
+		return amount, nil
 	}
-	return stake
 }

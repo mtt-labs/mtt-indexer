@@ -166,6 +166,32 @@ func (l *LDB) GetAllRecordsWithAutoId(record types.DbRecordAutoId, limit, offset
 	return records, total, nil
 }
 
+func (l *LDB) GetLast(record types.DbRecordAutoId) (interface{}, error) {
+	prefix := []byte(record.Prefix())
+
+	l.lock.RLock()
+	defer l.lock.RUnlock()
+
+	iter := l.DB.NewIterator(util.BytesPrefix(prefix), nil)
+	iter.Last()
+	defer iter.Release()
+
+	if len(iter.Value()) == 0 {
+		return nil, nil
+	}
+	data := iter.Value()
+
+	recordType := reflect.TypeOf(record).Elem()
+	newRecordPtr := reflect.New(recordType)
+	newRecord := newRecordPtr.Interface()
+
+	err := json.Unmarshal(data, &newRecord)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal record: %v", err)
+	}
+	return newRecord, nil
+}
+
 func getNextID(db *leveldb.DB, recordType string) (uint64, error) {
 	key := autoIncrementKey(recordType)
 
@@ -225,4 +251,16 @@ func StoreRecord(db *leveldb.DB, batch *leveldb.Batch, record types.DbRecord) er
 		batch.Put([]byte(key), data)
 		return db.Write(batch, nil)
 	}
+}
+
+func SaveIdRecord(batch *leveldb.Batch, record types.DbRecordAutoId) error {
+	data, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+
+	key := record.Key()
+
+	batch.Put([]byte(key), data)
+	return nil
 }

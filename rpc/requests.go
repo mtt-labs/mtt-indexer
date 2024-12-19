@@ -1,6 +1,10 @@
 package rpc
 
 import (
+	"context"
+	sdkmath "cosmossdk.io/math"
+	distributionTypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	stakingTypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"time"
 
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -49,6 +53,45 @@ func GetTxsByBlockHeight(cl *probeClient.ChainClient, height int64) (*txTypes.Ge
 	}
 
 	return resp, nil
+}
+
+func GetValidatorReward(cl *probeClient.ChainClient, validatorAddr string) (sdkmath.Int, error) {
+	client := distributionTypes.NewQueryClient(cl)
+	info, err := client.ValidatorOutstandingRewards(context.Background(), &distributionTypes.QueryValidatorOutstandingRewardsRequest{
+		ValidatorAddress: validatorAddr,
+	})
+	if err != nil {
+		return sdkmath.NewInt(0), err
+	}
+	coin, _ := info.Rewards.Rewards.TruncateDecimal()
+	return coin.AmountOfNoDenomValidation("amtt"), nil
+}
+
+func AllValidator(cl *probeClient.ChainClient) ([]string, error) {
+	client := stakingTypes.NewQueryClient(cl)
+	res, err := client.Validators(context.Background(), &stakingTypes.QueryValidatorsRequest{})
+	if err != nil {
+		return nil, err
+	}
+	validators := []string{}
+	for _, v := range res.Validators {
+		validators = append(validators, v.OperatorAddress)
+	}
+	for uint64(len(validators)) < res.Pagination.Total {
+		key := res.Pagination.NextKey
+		res, err = client.Validators(context.Background(), &stakingTypes.QueryValidatorsRequest{
+			Pagination: &query.PageRequest{
+				Key: key,
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range res.Validators {
+			validators = append(validators, v.OperatorAddress)
+		}
+	}
+	return validators, nil
 }
 
 // IsCatchingUp true if the node is catching up to the chain, false otherwise

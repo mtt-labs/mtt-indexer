@@ -3,7 +3,6 @@ package service
 import (
 	"mtt-indexer/db"
 	"mtt-indexer/types"
-	"time"
 )
 
 type IService interface {
@@ -12,7 +11,7 @@ type IService interface {
 	GetDelegatorHistory(delegator string, limit, offset int, asc bool) ([]*types.DelegatorRecord, int, error)
 	GetValidatorHistory(Validator string, limit, offset int, asc bool) ([]*types.ValidatorRecord, int, error)
 	GetCommissionRecord(Validator string, limit, offset int) ([]*types.CommissionRecord, int, error)
-	GetStakeHistory(limit, offset int) ([]*types.StakeHistory, int, error)
+	GetRewardHistory(validator string, limit, offset int) ([]*types.RewardRecord, int, error)
 }
 
 type Service struct {
@@ -100,38 +99,17 @@ func (s *Service) GetCommissionRecord(Validator string, limit, offset int) ([]*t
 	return records, total, nil
 }
 
-func (s *Service) GetStakeHistory(limit, offset int) ([]*types.StakeHistory, int, error) {
-	recordsIFace, total, err := s.ldb.GetAllRecordsWithAutoId(&types.StakeHistory{}, limit, offset, false)
-	records := []*types.StakeHistory{}
-
-	stake := s.getCulStake()
-	records = append(records, &types.StakeHistory{
-		Amount: stake.Amount,
-		Time:   time.Now(),
-	})
-
+func (s *Service) GetRewardHistory(validator string, limit, offset int) ([]*types.RewardRecord, int, error) {
+	recordsIFace, total, err := s.ldb.GetAllRecordsWithAutoId(&types.RewardRecord{Validator: validator}, limit, offset, false)
 	if err != nil {
-		return nil, total, err
-	} else {
-		for _, record := range recordsIFace {
-			if validatorRecord, ok := record.(*types.StakeHistory); ok {
-				records = append(records, validatorRecord)
-			}
+		return nil, 0, err
+	}
+	records := []*types.RewardRecord{}
+
+	for _, record := range recordsIFace {
+		if validatorRecord, ok := record.(*types.RewardRecord); ok {
+			records = append(records, validatorRecord)
 		}
 	}
-	return records, total + 1, nil
-}
-
-func (s *Service) getCulStake() *types.Stake {
-	stake := &types.Stake{}
-	record, err := s.ldb.GetRecordByType(stake)
-	if err != nil {
-		return nil
-	}
-	if record != nil {
-		if stakeRecord, ok := record.(*types.Stake); ok {
-			stake = stakeRecord
-		}
-	}
-	return stake
+	return records, total, nil
 }

@@ -182,30 +182,34 @@ func ValidatorHistoryEndpoint(s service.IService) gin.HandlerFunc {
 	}
 }
 
-type StakeHistory struct {
+type RewardHistory struct {
 	Amount string `json:"amount"`
 	Time   int64  `json:"time"`
 }
 
-func StakeHistoryEndpoint(s service.IService) gin.HandlerFunc {
+func RewardHistoryEndpoint(s service.IService) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		validatorStr, exist := c.GetQuery("validator")
+		if !exist {
+			return
+		}
 		limitStr, _ := c.GetQuery("limit")
 		limit, _ := strconv.Atoi(limitStr)
 		offsetStr, _ := c.GetQuery("offset")
 		offset, _ := strconv.Atoi(offsetStr)
 
-		records, total, err := s.GetStakeHistory(validLimit(limit, 20, 100), validOffset(offset))
+		records, total, err := s.GetRewardHistory(validatorStr, validLimit(limit, 20, 100), validOffset(offset))
 		if err != nil {
 			logger.Logger.Errorf("GetRecord endpoint error : %s", err)
 			return
 		}
 
-		result := []*StakeHistory{}
+		result := []*RewardHistory{}
 
 		for _, record := range records {
-			result = append(result, &StakeHistory{
+			result = append(result, &RewardHistory{
 				Amount: record.Amount,
-				Time:   record.Time.Unix(),
+				Time:   record.Time,
 			})
 		}
 
